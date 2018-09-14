@@ -48,7 +48,7 @@ include(CMakeParseArguments)
 ##-----------------------------------------------------------------------------
 ## blt_error_if_target_exists()
 ##
-## Checks if target already exists in CMake project and errors out with given 
+## Checks if target already exists in CMake project and errors out with given
 ## error_msg.
 ##-----------------------------------------------------------------------------
 function(blt_error_if_target_exists target_name error_msg)
@@ -77,9 +77,9 @@ macro(blt_find_executable)
     set(multiValueArgs  EXECUTABLES)
 
     # Parse the arguments
-    cmake_parse_arguments(arg "${options}" "${singleValueArgs}" 
+    cmake_parse_arguments(arg "${options}" "${singleValueArgs}"
                         "${multiValueArgs}" ${ARGN} )
-                        
+
     # Check arguments
     if ( NOT DEFINED arg_NAME )
         message( FATAL_ERROR "Must provide a NAME argument to the 'blt_find_executable' macro" )
@@ -124,9 +124,9 @@ macro(blt_setup_target)
     set(multiValueArgs DEPENDS_ON)
 
     # Parse the arguments
-    cmake_parse_arguments(arg "${options}" "${singleValueArgs}" 
+    cmake_parse_arguments(arg "${options}" "${singleValueArgs}"
                         "${multiValueArgs}" ${ARGN} )
-                        
+
     # Check arguments
     if ( NOT DEFINED arg_NAME )
         message( FATAL_ERROR "Must provide a NAME argument to the 'blt_setup_target' macro" )
@@ -186,7 +186,7 @@ macro(blt_setup_target)
         endif()
 
         if ( DEFINED BLT_${uppercase_dependency}_COMPILE_FLAGS )
-            blt_add_target_compile_flags(TO ${arg_NAME} 
+            blt_add_target_compile_flags(TO ${arg_NAME}
                                          FLAGS ${BLT_${uppercase_dependency}_COMPILE_FLAGS} )
         endif()
 
@@ -209,7 +209,7 @@ macro(blt_setup_cuda_source_properties)
     set(multiValueArgs TARGET_SOURCES)
 
     # Parse the arguments
-    cmake_parse_arguments(arg "${options}" "${singleValueArgs}" 
+    cmake_parse_arguments(arg "${options}" "${singleValueArgs}"
                             "${multiValueArgs}" ${ARGN} )
 
     # Check arguments
@@ -252,7 +252,7 @@ macro(blt_split_source_list_by_language)
     set(multiValueArgs SOURCES)
 
     # Parse the arguments
-    cmake_parse_arguments(arg "${options}" "${singleValueArgs}" 
+    cmake_parse_arguments(arg "${options}" "${singleValueArgs}"
                             "${multiValueArgs}" ${ARGN} )
 
     # Check arguments
@@ -263,12 +263,13 @@ macro(blt_split_source_list_by_language)
     # Generate source lists based on language
     foreach(_file ${arg_SOURCES})
         get_filename_component(_ext ${_file} EXT)
+        string(TOLOWER ${_ext} _ext_lower)
 
-        if(${_ext} IN_LIST BLT_C_FILE_EXTS)
+        if(${_ext_lower} IN_LIST BLT_C_FILE_EXTS)
             if (DEFINED arg_C_LIST)
                 list(APPEND ${arg_C_LIST} ${_file})
             endif()
-        elseif(${_ext} IN_LIST BLT_Fortran_FILE_EXTS)
+        elseif(${_ext_lower} IN_LIST BLT_Fortran_FILE_EXTS)
             if (DEFINED arg_Fortran_LIST)
                 list(APPEND ${arg_Fortran_LIST} ${_file})
             endif()
@@ -290,7 +291,7 @@ macro(blt_update_project_sources)
     set(multiValueArgs TARGET_SOURCES)
 
     # Parse the arguments
-    cmake_parse_arguments(arg "${options}" "${singleValueArgs}" 
+    cmake_parse_arguments(arg "${options}" "${singleValueArgs}"
                             "${multiValueArgs}" ${ARGN} )
 
     # Check arguments
@@ -313,3 +314,71 @@ macro(blt_update_project_sources)
     mark_as_advanced("${PROJECT_NAME}_ALL_SOURCES")
 
 endmacro(blt_update_project_sources)
+
+##------------------------------------------------------------------------------
+## blt_filter_list( TO <list_var> REGEX <string> OPERATION <string> )
+##
+## This macro provides the same functionality as cmake's list(FILTER )
+## which is only available in cmake-3.6+.
+##
+## The TO argument (required) is the name of a list variable.
+## The REGEX argument (required) is a string containing a regex.
+## The OPERATION argument (required) is a string that defines the macro's operation.
+## Supported values are "include" and "exclude"
+##
+## The filter is applied to the input list, which is modified in place.
+##------------------------------------------------------------------------------
+macro(blt_filter_list)
+
+    set(options )
+    set(singleValueArgs TO REGEX OPERATION)
+    set(multiValueArgs )
+
+    # Parse arguments
+    cmake_parse_arguments(arg "${options}" "${singleValueArgs}" 
+                            "${multiValueArgs}" ${ARGN} )
+
+    # Check arguments
+    if( NOT DEFINED arg_TO )
+        message(FATAL_ERROR "blt_filter_list macro requires a TO <list> argument")
+    endif()
+
+    if( NOT DEFINED arg_REGEX )
+        message(FATAL_ERROR "blt_filter_list macro requires a REGEX <string> argument")
+    endif()
+
+    # Ensure OPERATION argument is provided with value "include" or "exclude"
+    set(_exclude)
+    if( NOT DEFINED arg_OPERATION )
+        message(FATAL_ERROR "blt_filter_list macro requires a OPERATION <string> argument")
+    elseif(NOT arg_OPERATION MATCHES "^(include|exclude)$")
+        message(FATAL_ERROR "blt_filter_list macro's OPERATION argument must be either 'include' or 'exclude'")
+    else()
+        if(${arg_OPERATION} MATCHES "exclude")
+            set(_exclude TRUE)
+        else()
+            set(_exclude FALSE)
+        endif()
+    endif()
+
+    # Filter the list
+    set(_resultList)
+    foreach(elem ${${arg_TO}})
+        if(elem MATCHES ${arg_REGEX})
+            if(NOT ${_exclude})
+                list(APPEND _resultList ${elem})
+            endif()
+        else()
+            if(${_exclude})
+                list(APPEND _resultList ${elem})
+            endif()
+        endif()
+    endforeach()
+
+    # Copy result back to input list variable
+    set(${arg_TO} ${_resultList})
+
+    unset(_exclude)
+    unset(_resultList)
+endmacro(blt_filter_list)
+
